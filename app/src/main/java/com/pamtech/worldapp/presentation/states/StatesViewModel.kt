@@ -1,27 +1,31 @@
 package com.pamtech.worldapp.presentation.states
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pamtech.countriesservice.model.LibraryError
 import com.pamtech.countriesservice.model.LibraryResult
 import com.pamtech.countriesservice.repository.CountriesRepository
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class StatesViewModel @Inject constructor(
+@HiltViewModel(assistedFactory = StatesViewModel.Factory::class)
+class StatesViewModel @AssistedInject constructor(
     private val repository: CountriesRepository,
-    savedStateHandle: SavedStateHandle
+    @Assisted private val countryCode: String?
 ) : ViewModel() {
     private val _uiState: MutableStateFlow<StatesScreenUIState> = MutableStateFlow(StatesScreenUIState())
     val uiState: StateFlow<StatesScreenUIState> = _uiState.asStateFlow()
 
-    private val countryCode: String? = savedStateHandle["countryCode"]
+    @AssistedFactory
+    interface Factory {
+        fun create(countryCode: String?): StatesViewModel
+    }
 
     init {
         countryCode?.let { getStates(it) } ?: run {

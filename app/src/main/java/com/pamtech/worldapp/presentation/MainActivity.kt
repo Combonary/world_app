@@ -6,15 +6,21 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.compose.runtime.remember
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.ui.NavDisplay
 import com.pamtech.worldapp.presentation.continents.ContinentsScreen
 import com.pamtech.worldapp.presentation.countries.CountriesScreen
+import com.pamtech.worldapp.presentation.countries.CountriesViewModel
 import com.pamtech.worldapp.presentation.navigation.ContinentsRoute
 import com.pamtech.worldapp.presentation.navigation.CountriesRoute
+import com.pamtech.worldapp.presentation.navigation.Navigator
 import com.pamtech.worldapp.presentation.navigation.StatesRoute
+import com.pamtech.worldapp.presentation.navigation.rememberNavigationState
+import com.pamtech.worldapp.presentation.navigation.toEntries
 import com.pamtech.worldapp.presentation.states.StatesScreen
+import com.pamtech.worldapp.presentation.states.StatesViewModel
 import com.pamtech.worldapp.presentation.ui.theme.WorldAppTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -33,33 +39,47 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun WorldAppApp() {
-    val navController = rememberNavController()
+    val navigationState = rememberNavigationState(
+        startRoute = ContinentsRoute,
+        topLevelRoutes = setOf(ContinentsRoute)
+    )
+    val navigator = remember { Navigator(navigationState) }
     val activity = LocalActivity.current
 
-    NavHost(
-        navController = navController,
-        startDestination = ContinentsRoute
-    ) {
-        composable<ContinentsRoute> {
+    val entryProvider = entryProvider {
+        entry<ContinentsRoute> {
             ContinentsScreen(
                 onBackClicked = { activity?.finish() },
                 onContinentItemClicked = { continentCode ->
-                    navController.navigate(CountriesRoute(continentCode))
+                    navigator.navigate(CountriesRoute(continentCode))
                 }
             )
         }
-        composable<CountriesRoute> {
+        entry<CountriesRoute> { key ->
+            val viewModel = hiltViewModel<CountriesViewModel, CountriesViewModel.Factory>(
+                creationCallback = { factory -> factory.create(key.continentCode) }
+            )
             CountriesScreen(
-                onBackClicked = { navController.popBackStack() },
+                viewModel = viewModel,
+                onBackClicked = { navigator.goBack() },
                 onCountryItemClicked = { countryCode ->
-                    navController.navigate(StatesRoute(countryCode))
+                    navigator.navigate(StatesRoute(countryCode))
                 }
             )
         }
-        composable<StatesRoute> {
+        entry<StatesRoute> { key ->
+            val viewModel = hiltViewModel<StatesViewModel, StatesViewModel.Factory>(
+                creationCallback = { factory -> factory.create(key.countryCode) }
+            )
             StatesScreen(
-                onBackClicked = { navController.popBackStack() }
+                viewModel = viewModel,
+                onBackClicked = { navigator.goBack() }
             )
         }
     }
+
+    NavDisplay(
+        entries = navigationState.toEntries(entryProvider),
+        onBack = { navigator.goBack() }
+    )
 }
